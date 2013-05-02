@@ -15,9 +15,8 @@ begin
 		# This is now the most recent mention inspected - don't try to reply again
 		if mention.id > config[:mostRecentMentionId] then config[:mostRecentMentionId] = mention.id end
 		
-		# CHANGE BACK TO QR9000
 		# Ignore mentions that don't match expected format…
-		if !mention.text.match(/^@WheresThatSat\s+(.+)$/i) then next end
+		if !mention.text.match(/^@QR9000\s+(.+)$/i) then next end
 	
 		# …but extract the content of any matches ($~ is the last MatchData)
 		content = $~.captures[0]
