@@ -10,7 +10,6 @@ config = YAML.load_file('qr9000.yml')
 twitter = Twitter::Client.new(config[:authentication])
 
 begin
-	# :include_entities => true (default)
 	twitter.mentions(:since_id => config[:mostRecentMentionId], :include_entities => true).each do |mention|
 	
 		# This is now the most recent mention inspected - don't try to reply again
@@ -35,16 +34,24 @@ begin
 		end
 		newtext += content[laststart..-1]
 		
-		puts format("\"%s\"", mention.text)
-		puts format("\"%s\"", content)
-		puts format("\"%s\"", newtext)
-		
 		# (consider logging id/text/timestamp)
 		
-		# Need to specify :size explicity to ensure big enough QR version to fit data.
-		# It's surprising rqrcode doesn't provide a method to select appropriate version automatically.
-		qr = RQRCode::QRCode.new(content, :size => 5)
-		
+		size = 4
+		begin
+			qr = RQRCode::QRCode.new(newtext, :size => size)
+		rescue RQRCode::QRCodeRunTimeError => qerr
+	
+			# Content too big for size. Let error stand if already largest size.
+			if size == 40 then
+				raise qerr
+			end
+			
+			# Otherwise, increase the size and try again.
+			size += 1
+			retry
+			
+		end
+	
 		# Generate a PNG image of the QR code
 		png = qr.to_img.resize(480, 480)
 		
