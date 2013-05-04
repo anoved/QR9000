@@ -4,14 +4,18 @@ require 'rubygems'
 require 'twitter'
 require 'rqrcode_png'
 require 'yaml'
+require 'logger'
 
 config = YAML.load_file('qr9000.yml')
+logger = Logger.new('qr9000.log', 2, 1024000)
+logger.level = Logger::INFO
+
 
 begin
 	twitter = Twitter::Client.new(config[:authentication])
 	mentions = twitter.mentions(:since_id => config[:mostRecentMentionId], :include_entities => true)
 rescue Twitter::Error => err
-	puts STDERR, err
+	logger.fatal {err}
 	exit
 end
 
@@ -36,9 +40,7 @@ mentions.each do |mention|
 		laststart = url.indices[1]-offset
 	end
 	content += tweet[laststart..-1]
-	
-	# (consider logging id/text/timestamp)
-	
+		
 	# Generate the QR 
 	size = 4
 	begin
@@ -46,7 +48,10 @@ mentions.each do |mention|
 	rescue RQRCode::QRCodeRunTimeError => qerr
 
 		# Content too big for size. Let error stand if already largest size.
-		if size == 40 then raise qerr end
+		if size == 40 then
+			logger.error {qerr}
+			next
+		end
 		
 		# Otherwise, increase the size and try again.
 		size += 1
@@ -61,8 +66,11 @@ mentions.each do |mention|
 	begin
 		reply = twitter.update_with_media(format("@%s ", mention.user.screen_name), png.to_datastream(:fast_rgb), :in_reply_to_status_id => mention.id)
 	rescue Twitter::Error => err
-		puts STDERR, err
+		logger.error {err}
+		next
 	end
+	
+	logger.info {"#{mention.user.screen_name}, #{mention.id}, #{reply.id}, #{size}, \"#{content}\""}
 	
 end
 
