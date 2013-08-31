@@ -5,6 +5,7 @@ require 'twitter'
 require 'rqrcode_png'
 require 'yaml'
 require 'logger'
+require 'tempfile'
 
 config = YAML.load_file('qr9000.yml')
 logger = Logger.new('qr9000.log', 2, 1024000)
@@ -61,14 +62,16 @@ mentions.each do |mention|
 
 	# Generate a PNG image of the QR code
 	png = qr.to_img.resize(480, 480)
+	tmpfile = Tempfile.new("qr#{mention.id}")
+	png.write(tmpfile)
 	
 	# Format the response text, including as much of the content as we have to quote
 	maxQuoteLength = 111 - mention.user.screen_name.length
 	response = format("@%s \"%s\": ", mention.user.screen_name, content[0..(maxQuoteLength-1)])
-		
+
 	# Post the QR code image in reply; rgb format explicit (default grayscale PNG appears to confuse Twitter)
 	begin
-		reply = twitter.update_with_media(response, png.to_datastream(:fast_rgb), :in_reply_to_status_id => mention.id)
+		reply = twitter.update_with_media(response, tmpfile.open, :in_reply_to_status_id => mention.id)
 	rescue Twitter::Error => err
 		logger.error {err}
 		next
